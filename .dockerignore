@@ -1,0 +1,10 @@
+# Keep the backend build context small and clean.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.github/
+.DS_Store
+frontend/
+evals/results/

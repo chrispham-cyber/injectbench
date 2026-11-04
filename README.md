@@ -1,5 +1,7 @@
 # InjectBench
 
+[![CI](https://github.com/chrispham-cyber/injectbench/actions/workflows/ci.yml/badge.svg)](https://github.com/chrispham-cyber/injectbench/actions/workflows/ci.yml)
+
 A benchmark harness that measures how well an LLM — and, later, a tool-using
 agent — resists prompt-injection and jailbreak attacks. It runs a curated
 corpus of adversarial prompts against a target, scores each attempt, and
@@ -110,3 +112,27 @@ python -m pytest -q                                   # tests
 uvicorn backend.api:app --reload                      # API on :8000
 cd frontend && npm install && npm run dev             # UI on :3000
 ```
+
+## Run with Docker
+
+The whole dashboard in one command (serves the runs in `evals/results/`):
+
+```bash
+docker compose up --build        # API on :8000, UI on :3000
+```
+
+The frontend calls the API from the browser, so only the backend port needs to
+be reachable from the host. Generating *new* runs still needs Ollama and is done
+on the host (`python -m scripts.run_benchmark`), not inside the containers.
+
+## Continuous integration
+
+GitHub Actions runs on every push and pull request (`.github/workflows/ci.yml`):
+
+- **backend** — `pytest` over the judge, the judge-validation set, and the
+  path-traversal guard, then prints the judge's TPR/TNR.
+- **frontend** — `tsc --noEmit` type-check and a production `next build`.
+
+This is the regression gate: because `tests/test_judge_validation.py` fails if
+the scorer ever false-positives or misses a case outside its documented blind
+spots, a change that weakens the measurement cannot merge green.
