@@ -2,3 +2,5 @@
 httpx>=0.27        # talk to Ollama / hosted model APIs
 PyYAML>=6.0        # load the attack corpus from YAML files
 pytest>=8.0        # unit tests for the judge and loader
+fastapi>=0.110     # read-only web API over saved runs (Milestone 2)
+uvicorn>=0.29      # ASGI server to run the API in dev

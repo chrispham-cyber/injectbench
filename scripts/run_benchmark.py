@@ -11,8 +11,8 @@ import json
 from collections import defaultdict
 from dataclasses import asdict
 from datetime import datetime, timezone
-from pathlib import Path
 
+from backend import report
 from backend.corpus import load_corpus
 from backend.runner import run_benchmark
 from backend.scenario import ACME
@@ -64,10 +64,9 @@ def main() -> None:
         for r in leaks:
             print(f"  [{r.attack_id}] {r.technique:20s} via {r.encoding}")
 
-    out_dir = Path("evals/results")
-    out_dir.mkdir(parents=True, exist_ok=True)
+    report.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    out_path = out_dir / f"{target.name.replace('/', '_')}_{stamp}.json"
+    out_path = report.RESULTS_DIR / f"{target.name.replace('/', '_')}_{stamp}.json"
     out_path.write_text(
         json.dumps(
             {
