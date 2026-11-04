@@ -55,3 +55,9 @@ def compare() -> dict:
 def judge() -> dict:
     """How trustworthy the scorer is: TPR/TNR of the canary judge on labels."""
     return report.judge_quality()
+
+
+@app.get("/api/agents")
+def agents() -> dict:
+    """Scenario x target leak-rate matrix for the lethal-trifecta agent runs."""
+    return report.agent_matrix()

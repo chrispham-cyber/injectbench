@@ -22,6 +22,7 @@ from backend.judges import canary_leaked
 from backend.scenario import ACME, CANARY
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "evals" / "results"
+AGENT_RESULTS_DIR = Path(__file__).resolve().parent.parent / "evals" / "agent_results"
 CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
 VALIDATION_FILE = Path(__file__).resolve().parent.parent / "evals" / "judge_validation.yaml"
 
@@ -125,6 +126,66 @@ def compare_matrix() -> dict:
     families = sorted({f for t in targets for f in asr[t] if f != "TOTAL"})
     run_ids = {t: _run_id(newest[t][1]) for t in targets}
     return {"targets": targets, "families": families + ["TOTAL"], "asr": asr, "run_ids": run_ids}
+
+
+def _agent_run_paths() -> list[str]:
+    return sorted(glob.glob(str(AGENT_RESULTS_DIR / "*.json")))
+
+
+def agent_matrix() -> dict:
+    """Scenario x target leak-rate matrix for the lethal-trifecta agent runs.
+
+    Mirrors compare_matrix() but for the agent target (Milestone 3). Uses the
+    newest run per target; each cell is leaks/trials for one injection technique,
+    so it reads like an ASR but honestly reflects the per-scenario variance we
+    measured. Samples of the actual exfiltration travel with the matrix so the
+    dashboard can show what leaked without a second request.
+    """
+    # Local import keeps the chat path (API/CLI/tests) decoupled from agent code.
+    from backend.agent.scenarios import SCENARIOS as _agent_scenarios
+
+    newest: dict[str, tuple[float, dict]] = {}
+    for path in _agent_run_paths():
+        d = _load(path)
+        if d.get("kind") != "agent":
+            continue
+        target = d["target"]
+        mtime = os.path.getmtime(path)
+        if target not in newest or mtime > newest[target][0]:
+            newest[target] = (mtime, d)
+
+    targets = sorted(newest)
+    present = {r["scenario"] for t in targets for r in newest[t][1]["results"]}
+    canonical = [s for s in _agent_scenarios if s in present]
+    scenarios = canonical + sorted(present - set(canonical))
+
+    def rate_of(r: dict) -> float:
+        return r["rate"] if "rate" in r else (1.0 if r.get("exfiltrated") else 0.0)
+
+    rate = {t: {r["scenario"]: rate_of(r) for r in newest[t][1]["results"]} for t in targets}
+    asr = {t: newest[t][1].get("asr", 0.0) for t in targets}
+    trials = {t: newest[t][1].get("trials", 1) for t in targets}
+    samples = {
+        t: {
+            r["scenario"]: {
+                "leaks": r.get("leaks", int(bool(r.get("exfiltrated")))),
+                "trials": r.get("trials", 1),
+                "encodings": r.get("encodings") or ([r["encoding"]] if r.get("encoding") else []),
+                "exfiltration": r.get("sample_exfiltration") or r.get("exfiltrations", []),
+            }
+            for r in newest[t][1]["results"]
+        }
+        for t in targets
+    }
+    return {
+        "targets": targets,
+        "scenarios": scenarios,
+        "rate": rate,
+        "asr": asr,
+        "trials": trials,
+        "samples": samples,
+        "canary": CANARY,
+    }
 
 
 def judge_quality() -> dict:

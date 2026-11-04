@@ -46,6 +46,31 @@ code {
   font-size: 0.9em;
 }
 
+/* tab switcher (chat models vs agents) */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 24px;
+}
+.tab {
+  background: #161b22;
+  color: #9da7b3;
+  border: 1px solid #2a3240;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.tab:hover {
+  color: #e6edf3;
+}
+.tab.on {
+  background: rgba(31, 111, 235, 0.13);
+  color: #e6edf3;
+  border-color: rgba(56, 139, 253, 0.4);
+}
+
 table {
   border-collapse: collapse;
   width: 100%;
@@ -240,4 +265,12 @@ mark {
 .judge .note {
   color: #9da7b3;
   flex-basis: 100%;
+}
+
+/* trifecta strip (agents tab) */
+.judge.trifecta {
+  border-left-color: #d29922;
+}
+.judge.trifecta .judge-label {
+  color: #e3b341;
 }
