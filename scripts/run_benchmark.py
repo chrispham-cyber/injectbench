@@ -6,6 +6,7 @@ Saves the full run (every response) to evals/results/ for later inspection.
 """
 from __future__ import annotations
 
+import argparse
 import json
 from collections import defaultdict
 from dataclasses import asdict
@@ -19,8 +20,18 @@ from backend.targets import OllamaTarget
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Run the InjectBench attack corpus against a target model."
+    )
+    parser.add_argument(
+        "--model",
+        default="llama3.1:8b",
+        help="Ollama model tag to attack (default: llama3.1:8b)",
+    )
+    args = parser.parse_args()
+
     attacks = load_corpus()
-    target = OllamaTarget(model="llama3.1:8b")
+    target = OllamaTarget(model=args.model)
     scenario = ACME
 
     print(f"Target: {target.name} | Scenario: {scenario.name} | {len(attacks)} attacks\n")
