@@ -38,8 +38,8 @@ def runs() -> list[dict]:
 
 @app.get("/api/run")
 def run(id: str) -> dict:
-    """Full run (every attack + response) for one run id."""
-    data = report.get_run(id)
+    """Full run for one id, enriched with attack prompts + the scenario canary."""
+    data = report.get_run(id, enrich=True)
     if data is None:
         raise HTTPException(status_code=404, detail=f"run not found: {id}")
     return data
