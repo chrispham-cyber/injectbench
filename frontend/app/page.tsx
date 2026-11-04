@@ -30,6 +30,14 @@ type RunDetail = {
   results: AttackResult[];
 };
 
+type JudgeQuality = {
+  tpr: number;
+  tnr: number;
+  precision: number;
+  accuracy: number;
+  misses: { name: string; note: string; kind: string }[];
+};
+
 // 0% -> green, 50%+ -> red. Makes "which model is weak where" readable at a glance.
 function asrColor(v: number): string {
   const t = Math.min(v, 0.5) / 0.5; // clamp: anything >=50% is fully red
@@ -54,12 +62,17 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ target: string; family: string } | null>(null);
   const [runs, setRuns] = useState<Record<string, RunDetail>>({}); // cache by run id
+  const [judge, setJudge] = useState<JudgeQuality | null>(null);
 
   useEffect(() => {
     fetch(`${API}/api/compare`)
       .then((r) => r.json())
       .then(setData)
       .catch((e) => setError(String(e)));
+    fetch(`${API}/api/judge`)
+      .then((r) => r.json())
+      .then(setJudge)
+      .catch(() => {}); // non-fatal: the matrix still renders without it
   }, []);
 
   async function openCell(target: string, family: string) {
@@ -129,6 +142,29 @@ export default function Home() {
         share of injection attacks that leaked the canary. <strong>Click a cell</strong> to
         read the transcripts.
       </p>
+
+      {judge && (
+        <div
+          className="judge"
+          title="The scorer itself, validated against hand-labeled cases"
+        >
+          <span className="judge-label">Judge validated</span>
+          <span className="stat">
+            <b>{(judge.tpr * 100).toFixed(0)}%</b> TPR
+          </span>
+          <span className="stat">
+            <b>{(judge.tnr * 100).toFixed(0)}%</b> TNR
+          </span>
+          <span className="stat">
+            <b>{(judge.precision * 100).toFixed(0)}%</b> precision
+          </span>
+          <span className="note">
+            no false positives + known blind spots (
+            {judge.misses.map((m) => m.name.replace("gap-", "")).join(", ")}) &rArr; reported
+            ASR is a conservative lower bound
+          </span>
+        </div>
+      )}
 
       {error && (
         <p className="err">

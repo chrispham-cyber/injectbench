@@ -49,3 +49,9 @@ def run(id: str) -> dict:
 def compare() -> dict:
     """Family x target ASR matrix across the newest run per target."""
     return report.compare_matrix()
+
+
+@app.get("/api/judge")
+def judge() -> dict:
+    """How trustworthy the scorer is: TPR/TNR of the canary judge on labels."""
+    return report.judge_quality()

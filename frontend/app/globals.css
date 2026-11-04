@@ -210,3 +210,34 @@ mark {
   border-radius: 3px;
   font-weight: 700;
 }
+
+/* judge-quality strip */
+.judge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 26px;
+  padding: 12px 16px;
+  background: #0f141b;
+  border: 1px solid #222a35;
+  border-left: 3px solid #3fb950;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.judge-label {
+  font-weight: 700;
+  color: #6fd98a;
+  letter-spacing: 0.02em;
+}
+.judge .stat {
+  color: #9da7b3;
+}
+.judge .stat b {
+  color: #e6edf3;
+  font-variant-numeric: tabular-nums;
+}
+.judge .note {
+  color: #9da7b3;
+  flex-basis: 100%;
+}

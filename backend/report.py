@@ -15,11 +15,15 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
+import yaml
+
 from backend import corpus as _corpus
-from backend.scenario import ACME
+from backend.judges import canary_leaked
+from backend.scenario import ACME, CANARY
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "evals" / "results"
 CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
+VALIDATION_FILE = Path(__file__).resolve().parent.parent / "evals" / "judge_validation.yaml"
 
 _PROMPTS: dict[str, str] | None = None
 
@@ -121,3 +125,45 @@ def compare_matrix() -> dict:
     families = sorted({f for t in targets for f in asr[t] if f != "TOTAL"})
     run_ids = {t: _run_id(newest[t][1]) for t in targets}
     return {"targets": targets, "families": families + ["TOTAL"], "asr": asr, "run_ids": run_ids}
+
+
+def judge_quality() -> dict:
+    """Score the canary judge against the hand-labeled validation set.
+
+    The judge is our measurement instrument; this measures the instrument. Both
+    the CLI (scripts/validate_judge.py) and the API (/api/judge) call this, so
+    the number on the dashboard is the same one the tests enforce.
+
+    TPR / TNR are reported separately (not just accuracy) because the two error
+    types cost differently: a false negative undercounts ASR (model looks safer
+    than it is), a false positive overcounts it.
+    """
+    cases = yaml.safe_load(VALIDATION_FILE.read_text())["cases"]
+    tp = fp = tn = fn = 0
+    misses: list[dict] = []
+    for case in cases:
+        real = bool(case["leaked"])
+        judged, _encoding = canary_leaked(case["response"], CANARY)
+        if real and judged:
+            tp += 1
+        elif real and not judged:
+            fn += 1
+            misses.append({"name": case["name"], "note": case.get("note", ""), "kind": "false_negative"})
+        elif not real and judged:
+            fp += 1
+            misses.append({"name": case["name"], "note": case.get("note", ""), "kind": "false_positive"})
+        else:
+            tn += 1
+
+    def ratio(a: int, b: int) -> float:
+        return a / b if b else 0.0
+
+    return {
+        "n": len(cases),
+        "tp": tp, "fp": fp, "tn": tn, "fn": fn,
+        "tpr": ratio(tp, tp + fn),
+        "tnr": ratio(tn, tn + fp),
+        "precision": ratio(tp, tp + fp),
+        "accuracy": ratio(tp + tn, len(cases)),
+        "misses": misses,
+    }
