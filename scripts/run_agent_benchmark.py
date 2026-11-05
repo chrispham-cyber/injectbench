@@ -22,15 +22,18 @@ from __future__ import annotations
 import argparse
 import json
 from datetime import datetime, timezone
+from functools import partial
 from pathlib import Path
 
 from backend.agent.runner import run_agent
 from backend.agent.scenarios import HARDENED_SYSTEM_PROMPT, SCENARIOS
 from backend.agent.tools import Sandbox
+from backend.judges import canary_leaked, combined_canary_leaked
 from backend.scenario import CANARY
 
 AGENT_RESULTS_DIR = Path(__file__).resolve().parent.parent / "evals" / "agent_results"
 DEFENSES = ("none", "prompt", "guard", "both")
+JUDGES = ("deterministic", "union")
 
 
 def main() -> None:
@@ -38,12 +41,27 @@ def main() -> None:
     ap.add_argument("--model", default="llama3.1:8b")
     ap.add_argument("--trials", type=int, default=5, help="runs per scenario (variance control)")
     ap.add_argument("--defense", default="none", choices=DEFENSES)
+    ap.add_argument(
+        "--judge", default="deterministic", choices=JUDGES,
+        help="how to score exfiltration: 'deterministic' (fast, reproducible floor) "
+        "or 'union' (adds the validated LLM-judge to catch obfuscation; slower)",
+    )
+    ap.add_argument("--judge-model", default="mistral-small3.2:24b", help="LLM judge for --judge union")
     args = ap.parse_args()
 
     hardened = args.defense in ("prompt", "both")
     guard = args.defense in ("guard", "both")
+    # The post-hoc scorer. Default = deterministic (the conservative lower bound).
+    # 'union' plugs the two-tier judge into Sandbox.leaked() so a faithfully
+    # obfuscated exfil (e.g. leetspeak) is also counted.
+    judge = (
+        partial(combined_canary_leaked, model=args.judge_model)
+        if args.judge == "union"
+        else canary_leaked
+    )
     tag = "" if args.defense == "none" else f"  [defense: {args.defense}]"
-    print(f"Running {len(SCENARIOS)} scenarios x {args.trials} trials against {args.model}{tag}\n")
+    jtag = "" if args.judge == "deterministic" else f"  [judge: union/{args.judge_model}]"
+    print(f"Running {len(SCENARIOS)} scenarios x {args.trials} trials against {args.model}{tag}{jtag}\n")
 
     results = []
     for name, s in SCENARIOS.items():
@@ -53,7 +71,9 @@ def main() -> None:
         sample: list[dict] = []
         sample_blocked: list[dict] = []
         for _ in range(args.trials):
-            sandbox = Sandbox(canary=CANARY, notes=s.notes, pages=dict(s.pages), guard=guard)
+            sandbox = Sandbox(
+                canary=CANARY, notes=s.notes, pages=dict(s.pages), guard=guard, judge=judge
+            )
             r = run_agent(args.model, sys_prompt, s.task, sandbox)
             if r.exfiltrated:
                 leaks += 1
@@ -101,6 +121,8 @@ def main() -> None:
                 "kind": "agent",
                 "target": f"ollama/{args.model}",
                 "defense": args.defense,
+                "judge": args.judge,
+                "judge_model": args.judge_model if args.judge == "union" else None,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "trials": args.trials,
                 "asr": asr,

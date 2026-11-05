@@ -38,6 +38,17 @@ type JudgeQuality = {
   misses: { name: string; note: string; kind: string }[];
 };
 
+type LlmJudgeRow = {
+  key: string;
+  label: string;
+  tpr: number;
+  tnr: number;
+  precision: number;
+  misses: string[];
+};
+
+type LlmJudgeData = { judge: string | null; rows: LlmJudgeRow[] };
+
 type Outbound = { recipient: string; body: string; encoding?: string | null };
 
 type AgentSample = {
@@ -88,6 +99,7 @@ export default function Home() {
   const [selected, setSelected] = useState<{ target: string; family: string } | null>(null);
   const [runs, setRuns] = useState<Record<string, RunDetail>>({}); // cache by run id
   const [judge, setJudge] = useState<JudgeQuality | null>(null);
+  const [judgeLlm, setJudgeLlm] = useState<LlmJudgeData | null>(null);
 
   // agents tab
   const [agents, setAgents] = useState<AgentData | null>(null);
@@ -102,6 +114,10 @@ export default function Home() {
       .then((r) => r.json())
       .then(setJudge)
       .catch(() => {}); // non-fatal: the matrix still renders without it
+    fetch(`${API}/api/judge-llm`)
+      .then((r) => r.json())
+      .then((d: LlmJudgeData) => setJudgeLlm(d && d.rows?.length ? d : null))
+      .catch(() => {}); // non-fatal: panel hidden until the validation run exists
     fetch(`${API}/api/agents`)
       .then((r) => r.json())
       .then(setAgents)
@@ -196,6 +212,43 @@ export default function Home() {
               {judge.misses.map((m) => m.name.replace("gap-", "")).join(", ")}) &rArr; reported
               ASR is a conservative lower bound
             </span>
+          </div>
+        )}
+
+        {judgeLlm && judgeLlm.rows.length > 0 && (
+          <div className="judgev2">
+            <div className="judgev2-head">
+              <span className="judge-label">Judge v2 &mdash; validated LLM-judge</span>
+              <span className="note">
+                The deterministic scorer misses free-form obfuscation (leetspeak, Morse). A
+                second-tier LLM-judge is <em>itself</em> validated before being trusted &mdash; a
+                false positive would overcount ASR. Their <strong>union</strong> lifts recall
+                while precision stays 100%, so the reported ASR is still a conservative lower
+                bound.
+              </span>
+            </div>
+            <table className="mini">
+              <thead>
+                <tr>
+                  <th>Judge</th>
+                  <th>TPR</th>
+                  <th>TNR</th>
+                  <th>Precision</th>
+                  <th>Misses</th>
+                </tr>
+              </thead>
+              <tbody>
+                {judgeLlm.rows.map((r) => (
+                  <tr key={r.key} className={r.key === "union" ? "total" : ""}>
+                    <td className="fam">{r.label}</td>
+                    <td>{(r.tpr * 100).toFixed(0)}%</td>
+                    <td>{(r.tnr * 100).toFixed(0)}%</td>
+                    <td>{(r.precision * 100).toFixed(0)}%</td>
+                    <td className="miss">{r.misses.length ? r.misses.join(", ") : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 

@@ -281,3 +281,44 @@ mark {
 .judge.trifecta .judge-label {
   color: #e3b341;
 }
+
+/* judge v2 panel (validated LLM-judge) */
+.judgev2 {
+  margin: 0 0 26px;
+  padding: 14px 16px;
+  background: #0f141b;
+  border: 1px solid #222a35;
+  border-left: 3px solid #388bfd;
+  border-radius: 8px;
+}
+.judgev2-head {
+  margin-bottom: 12px;
+}
+.judgev2-head .judge-label {
+  color: #79c0ff;
+  display: block;
+  margin-bottom: 4px;
+}
+.judgev2-head .note {
+  color: #9da7b3;
+  font-size: 13px;
+}
+table.mini {
+  font-size: 13px;
+}
+table.mini th,
+table.mini td {
+  text-align: left;
+  padding: 7px 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+table.mini tr.total td {
+  font-weight: 800;
+  color: #e6edf3;
+}
+table.mini td.miss {
+  color: #9da7b3;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}

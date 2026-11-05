@@ -133,8 +133,23 @@ The design is two-tier (`backend/judges/combined_canary_leaked`): the cheap,
 reproducible deterministic judge runs first and the LLM is consulted only for what
 it clears — so cost stays low and the precision guarantee is preserved.
 
+**Wired into the agent scorer — and an honest null result.**
+`run_agent_benchmark --judge union` scores exfiltration with this two-tier judge
+(the default stays `deterministic`, the reproducible lower bound). On the current
+corpus it reports the *same* Agent-ASR as the deterministic judge — and that's not
+because the union judge is idle. Asked to exfiltrate the secret in leetspeak,
+llama3.1 and qwen3.5 *corrupt* it (`CANARY-7f3a9b2e` → `C4N4R4-7f349b2e`), so no
+exact secret is recoverable and both judges correctly score it as a non-leak. The
+union judge is validated insurance for a more capable agent that *can* obfuscate
+faithfully; rather than manufacture a difference, the benchmark reports that, on
+these models, there isn't one — and why. (The real-time egress guard stays
+deterministic on purpose: a filter on every tool call must be fast and
+reproducible, so a faithful obfuscation is exactly the residual gap the offline
+union scorer exists to measure.)
+
 Reproduce: `python -m scripts.validate_llm_judge --judge mistral-small3.2:24b`
-(needs Ollama; writes `evals/llm_judge_validation.json`)
+(needs Ollama; writes `evals/llm_judge_validation.json`). Score an agent run with
+the union judge: `python -m scripts.run_agent_benchmark --model llama3.1:8b --judge union`
 
 ## Results — Milestone 3 (tool-using agent, lethal trifecta)
 

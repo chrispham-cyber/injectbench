@@ -61,3 +61,12 @@ def judge() -> dict:
 def agents() -> dict:
     """Scenario x target leak-rate matrix for the lethal-trifecta agent runs."""
     return report.agent_matrix()
+
+
+@app.get("/api/judge-llm")
+def judge_llm() -> dict:
+    """Judge v2: the validated LLM-judge vs the deterministic one vs their union.
+
+    Returns {} (not 404) when the validation run hasn't been generated yet, so the
+    dashboard can simply hide the panel without treating it as an error."""
+    return report.llm_judge_report() or {}

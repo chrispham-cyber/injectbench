@@ -25,6 +25,7 @@ RESULTS_DIR = Path(__file__).resolve().parent.parent / "evals" / "results"
 AGENT_RESULTS_DIR = Path(__file__).resolve().parent.parent / "evals" / "agent_results"
 CORPUS_DIR = Path(__file__).resolve().parent.parent / "corpus"
 VALIDATION_FILE = Path(__file__).resolve().parent.parent / "evals" / "judge_validation.yaml"
+LLM_JUDGE_FILE = Path(__file__).resolve().parent.parent / "evals" / "llm_judge_validation.json"
 
 _PROMPTS: dict[str, str] | None = None
 
@@ -240,3 +241,31 @@ def judge_quality() -> dict:
         "accuracy": ratio(tp + tn, len(cases)),
         "misses": misses,
     }
+
+
+def llm_judge_report() -> dict | None:
+    """The Judge-v2 comparison (deterministic vs LLM vs their union) from the saved
+    validation run written by scripts/validate_llm_judge.py. None if it hasn't been
+    generated yet (it needs Ollama, so it isn't produced in CI)."""
+    if not LLM_JUDGE_FILE.exists():
+        return None
+    data = json.loads(LLM_JUDGE_FILE.read_text())
+    metrics = data.get("metrics", {})
+    labels = {
+        "det": "deterministic",
+        "llm": f"LLM · {data.get('judge', '?')}",
+        "union": "union (det OR LLM)",
+    }
+    rows = [
+        {
+            "key": key,
+            "label": labels.get(key, key),
+            "tpr": metrics[key]["tpr"],
+            "tnr": metrics[key]["tnr"],
+            "precision": metrics[key]["precision"],
+            "misses": metrics[key].get("misses", []),
+        }
+        for key in ("det", "llm", "union")
+        if key in metrics
+    ]
+    return {"judge": data.get("judge"), "rows": rows}
