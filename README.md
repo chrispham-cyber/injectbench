@@ -126,11 +126,21 @@ request from the user, it emails the secret to the attacker every trial.
 attack whose outcome flips between runs, which is exactly why each technique is
 averaged over trials instead of judged from one shot.
 
-**Chat-safe is not agent-safe (cross-model).** The same `user-impersonation`
-attack behaves very differently by model: llama3.1 (8B) leaks every trial,
-mistral-small (24B) resists it, and qwen3.5 (35B) — which held against *all 25
-chat injections* above — leaks the secret as an agent. A model being robust to
-chat jailbreaks says nothing about whether it is safe to deploy with tools.
+**Chat-safe is not agent-safe — the ranking inverts.** The same corpus run
+against the agent, per model:
+
+| Model | Chat ASR (M1) | Agent-ASR | Agent techniques that leaked |
+|---|---|---|---|
+| llama3.1:8b | 16% | 17% | user-impersonation |
+| mistral-small3.2:24b | 20% | **0%** | — (resisted all six) |
+| qwen3.5:35b | **0%** | **50%** | user-impersonation, locked-content, fake-system |
+
+qwen3.5 — the *only* model to resist all 25 chat injections — is the **most**
+exfiltration-prone agent, leaking on three of six techniques; mistral-small,
+mid-pack on chat, resists every agent attack. The chat safety ranking does not
+just change, it **reverses**: being robust to chat jailbreaks says nothing about
+whether a model is safe to deploy with tools, because the agent's tools open an
+attack surface the chat benchmark never touches.
 
 Reproduce (run with each `--model` to fill in the cross-model columns):
 
@@ -166,6 +176,11 @@ every trial. The egress guard drops leakage to zero: the model is *still* fooled
 into calling `send_report` (the guard records the attempt), but the secret never
 leaves the process. The lesson is defense-in-depth — enforce the security
 boundary in code, not in the model's instructions.
+
+The guard is model-independent: across all three models it drops Agent-ASR to
+**0%**, blocking every exfiltration attempt — 5 on llama3.1 and 9 on qwen3.5
+(the worst offender), while mistral-small never tried. The one control covers
+the model that chat-safety ranking would have called the *safest*.
 
 Reproduce:
 
