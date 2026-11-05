@@ -161,6 +161,9 @@ td.cell.sel {
 .card.held {
   border-left-color: #3fb950;
 }
+.card.blocked {
+  border-left-color: #d29922;
+}
 .card-head {
   display: flex;
   align-items: center;
@@ -194,6 +197,10 @@ td.cell.sel {
 .badge.good {
   background: #11341c;
   color: #6fd98a;
+}
+.badge.warn {
+  background: #3d2e05;
+  color: #e3b341;
 }
 
 .line {

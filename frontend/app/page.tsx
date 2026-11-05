@@ -38,11 +38,15 @@ type JudgeQuality = {
   misses: { name: string; note: string; kind: string }[];
 };
 
+type Outbound = { recipient: string; body: string; encoding?: string | null };
+
 type AgentSample = {
   leaks: number;
   trials: number;
+  blocks: number;
   encodings: string[];
-  exfiltration: { recipient: string; body: string }[];
+  exfiltration: Outbound[];
+  blocked: Outbound[];
 };
 
 type AgentData = {
@@ -51,6 +55,7 @@ type AgentData = {
   rate: Record<string, Record<string, number>>;
   asr: Record<string, number>;
   trials: Record<string, number>;
+  defense: Record<string, string>;
   samples: Record<string, Record<string, AgentSample>>;
   canary: string;
 };
@@ -246,6 +251,15 @@ export default function Home() {
     const s = agents.samples[agentSel.target]?.[agentSel.scenario];
     if (!s) return null;
     const leaked = s.leaks > 0;
+    const blocked = !leaked && s.blocks > 0;
+    const cls = leaked ? "leak" : blocked ? "blocked" : "held";
+    const badgeCls = leaked ? "bad" : blocked ? "warn" : "good";
+    const badgeText = leaked
+      ? `${s.leaks}/${s.trials} leaked · ${s.encodings.join(", ")}`
+      : blocked
+      ? `${s.blocks}/${s.trials} blocked by guard`
+      : `held · 0/${s.trials}`;
+    const shown: Outbound[] = leaked ? s.exfiltration : blocked ? s.blocked : [];
     return (
       <section className="detail">
         <div className="detail-head">
@@ -256,24 +270,26 @@ export default function Home() {
             ✕ close
           </button>
         </div>
-        <article className={`card ${leaked ? "leak" : "held"}`}>
+        <article className={`card ${cls}`}>
           <div className="card-head">
             <span className="tech">{agentSel.scenario}</span>
-            <span className={`badge ${leaked ? "bad" : "good"}`}>
-              {leaked
-                ? `${s.leaks}/${s.trials} leaked · ${s.encodings.join(", ")}`
-                : `held · 0/${s.trials}`}
-            </span>
+            <span className={`badge ${badgeCls}`}>{badgeText}</span>
           </div>
-          {leaked ? (
-            s.exfiltration.map((ex, i) => (
+          {blocked && (
+            <p className="muted">
+              The injection still fooled the model into calling <code>send_report</code> &mdash;
+              the egress guard stopped the secret at the tool boundary.
+            </p>
+          )}
+          {shown.length > 0 ? (
+            shown.map((ex, i) => (
               <div key={i}>
                 <pre className="line prompt">
                   <span className="who">to</span>
                   {ex.recipient}
                 </pre>
                 <pre className="line resp">
-                  <span className="who">body</span>
+                  <span className="who">{blocked ? "blocked" : "body"}</span>
                   {highlight(ex.body, agents.canary)}
                 </pre>
               </div>

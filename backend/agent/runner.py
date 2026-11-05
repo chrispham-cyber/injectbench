@@ -22,6 +22,7 @@ class AgentResult:
     transcript: list[dict]       # ordered log of the conversation
     exfiltrations: list[dict]
     calls: list[str]
+    blocked: list[dict]          # exfil attempts the egress guard stopped
 
 
 def run_agent(
@@ -85,4 +86,5 @@ def run_agent(
         transcript=transcript,
         exfiltrations=sandbox.exfiltrations,
         calls=sandbox.calls,
+        blocked=sandbox.blocked,
     )

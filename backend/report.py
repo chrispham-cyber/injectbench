@@ -133,49 +133,60 @@ def _agent_run_paths() -> list[str]:
 
 
 def agent_matrix() -> dict:
-    """Scenario x target leak-rate matrix for the lethal-trifecta agent runs.
+    """Scenario x (target, defense) leak-rate matrix for the lethal-trifecta runs.
 
-    Mirrors compare_matrix() but for the agent target (Milestone 3). Uses the
-    newest run per target; each cell is leaks/trials for one injection technique,
-    so it reads like an ASR but honestly reflects the per-scenario variance we
-    measured. Samples of the actual exfiltration travel with the matrix so the
-    dashboard can show what leaked without a second request.
+    Each column is a model, optionally under a defense (e.g. "llama3.1:8b +guard"),
+    using the newest run per (model, defense). Each cell is leaks/trials for one
+    injection technique; samples carry both what leaked and what the egress guard
+    blocked, so the dashboard shows a defense's before/after side by side.
     """
     # Local import keeps the chat path (API/CLI/tests) decoupled from agent code.
     from backend.agent.scenarios import SCENARIOS as _agent_scenarios
+
+    defense_order = {"none": 0, "prompt": 1, "guard": 2, "both": 3}
+
+    def col_of(target: str, defense: str) -> str:
+        return target if defense == "none" else f"{target} +{defense}"
 
     newest: dict[str, tuple[float, dict]] = {}
     for path in _agent_run_paths():
         d = _load(path)
         if d.get("kind") != "agent":
             continue
-        target = d["target"]
+        col = col_of(d["target"], d.get("defense", "none"))
         mtime = os.path.getmtime(path)
-        if target not in newest or mtime > newest[target][0]:
-            newest[target] = (mtime, d)
+        if col not in newest or mtime > newest[col][0]:
+            newest[col] = (mtime, d)
 
-    targets = sorted(newest)
-    present = {r["scenario"] for t in targets for r in newest[t][1]["results"]}
+    def sort_key(col: str) -> tuple[str, int]:
+        d = newest[col][1]
+        return (d["target"], defense_order.get(d.get("defense", "none"), 9))
+
+    targets = sorted(newest, key=sort_key)
+    present = {r["scenario"] for c in targets for r in newest[c][1]["results"]}
     canonical = [s for s in _agent_scenarios if s in present]
     scenarios = canonical + sorted(present - set(canonical))
 
     def rate_of(r: dict) -> float:
         return r["rate"] if "rate" in r else (1.0 if r.get("exfiltrated") else 0.0)
 
-    rate = {t: {r["scenario"]: rate_of(r) for r in newest[t][1]["results"]} for t in targets}
-    asr = {t: newest[t][1].get("asr", 0.0) for t in targets}
-    trials = {t: newest[t][1].get("trials", 1) for t in targets}
+    rate = {c: {r["scenario"]: rate_of(r) for r in newest[c][1]["results"]} for c in targets}
+    asr = {c: newest[c][1].get("asr", 0.0) for c in targets}
+    trials = {c: newest[c][1].get("trials", 1) for c in targets}
+    defense = {c: newest[c][1].get("defense", "none") for c in targets}
     samples = {
-        t: {
+        c: {
             r["scenario"]: {
                 "leaks": r.get("leaks", int(bool(r.get("exfiltrated")))),
                 "trials": r.get("trials", 1),
+                "blocks": r.get("blocks", 0),
                 "encodings": r.get("encodings") or ([r["encoding"]] if r.get("encoding") else []),
                 "exfiltration": r.get("sample_exfiltration") or r.get("exfiltrations", []),
+                "blocked": r.get("sample_blocked", []),
             }
-            for r in newest[t][1]["results"]
+            for r in newest[c][1]["results"]
         }
-        for t in targets
+        for c in targets
     }
     return {
         "targets": targets,
@@ -183,6 +194,7 @@ def agent_matrix() -> dict:
         "rate": rate,
         "asr": asr,
         "trials": trials,
+        "defense": defense,
         "samples": samples,
         "canary": CANARY,
     }
